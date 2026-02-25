@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>High-Fidelity PDF Visual Compare</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- PDF.js for rendering PDFs visually -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    
+    <!-- jsPDF for downloading the highlighted result -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        .scrollable-pane::-webkit-scrollbar {
+            width: 8px;
+        }
+        .scrollable-pane::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+            border-radius: 4px;
+        }
+        .scrollable-pane::-webkit-scrollbar-thumb {
+            background: #c1c1c1; 
+            border-radius: 4px;
+        }
+        .scrollable-pane::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8; 
+        }
+        
+        .pdf-canvas-wrapper {
+            margin-bottom: 20px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e2e8f0;
+            background: white;
+            position: relative;
+            transition: transform 0.2s;
+        }
+        .pdf-canvas-wrapper.selected {
+            outline: 4px solid #3b82f6;
+            transform: scale(1.02);
+            z-index: 5;
+        }
+        .pdf-canvas-wrapper canvas {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+        .page-label {
+            position: absolute;
+            top: 0;
+            left: 0;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 4px 10px;
+            font-size: 12px;
+            font-weight: bold;
+            border-bottom-right-radius: 8px;
+            pointer-events: none;
+        }
+
+        /* Drag and Drop Styling */
+        .drop-zone {
+            transition: all 0.3s ease;
+            border: 2px dashed #e2e8f0;
+        }
+        .drop-zone.drag-over {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <h1 class="text-xl font-bold text-slate-900">PDF Visual Compare <span class="text-blue-600">HQ</span></h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <p class="text-xs text-slate-400 hidden md:block italic">Developed by VK Basson</p>
+                <a href="https://github.com" target="_blank" class="text-slate-500 hover:text-slate-900">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
+        
+        <!-- Upload Section -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <!-- PDF 1 Upload -->
+            <div id="drop-zone-1" class="drop-zone bg-white p-6 rounded-xl shadow-sm">
+                <h2 class="text-lg font-semibold mb-2 text-slate-700">1. Original PDF</h2>
+                <p class="text-xs text-slate-500 mb-4">Click to browse or drag and drop file here</p>
+                <input id="pdf1" type="file" accept="application/pdf" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                <p id="pdf1-status" class="mt-2 text-xs text-slate-400 font-medium">Ready for upload</p>
+            </div>
+
+            <!-- PDF 2 Upload -->
+            <div id="drop-zone-2" class="drop-zone bg-white p-6 rounded-xl shadow-sm">
+                <h2 class="text-lg font-semibold mb-2 text-slate-700">2. PDF to be compared</h2>
+                <p class="text-xs text-slate-500 mb-4">Click to browse or drag and drop file here</p>
+                <input id="pdf2" type="file" accept="application/pdf" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                <p id="pdf2-status" class="mt-2 text-xs text-slate-400 font-medium">Ready for upload</p>
+            </div>
+        </div>
+
+        <!-- Options Section -->
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8 flex flex-col gap-6">
+            <div class="flex flex-wrap items-center justify-center gap-8">
+                <div class="flex items-center gap-3">
+                    <span class="text-sm font-bold text-slate-700">Mode:</span>
+                    <label class="inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="pageToPageToggle" class="sr-only peer" checked>
+                        <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        <span class="ms-3 text-sm font-medium text-slate-700" id="modeLabel">Page-to-Page Comparison</span>
+                    </label>
+                </div>
+                <div id="manualInstruction" class="hidden text-sm text-blue-600 animate-pulse font-medium">
+                    Select pages from the panels or use the Quick Jump below.
+                </div>
+            </div>
+
+            <!-- Quick Jump Option (Manual Mode Only) -->
+            <div id="quickJumpArea" class="hidden border-t pt-4 flex flex-wrap items-center justify-center gap-4">
+                <div class="flex items-center gap-2">
+                    <label class="text-sm font-semibold text-slate-600">Original Page #:</label>
+                    <input type="number" id="jumpP1" min="1" class="w-20 px-3 py-1 border rounded-lg text-center" placeholder="e.g. 2">
+                </div>
+                <div class="flex items-center gap-2">
+                    <label class="text-sm font-semibold text-slate-600">Compared Page #:</label>
+                    <input type="number" id="jumpP2" min="1" class="w-20 px-3 py-1 border rounded-lg text-center" placeholder="e.g. 6">
+                </div>
+                <button id="jumpCompareBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-1.5 rounded-lg text-sm font-bold shadow transition disabled:opacity-50">Compare Typed Pages</button>
+            </div>
+        </div>
+
+        <!-- Action Area -->
+        <div class="text-center mb-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <button id="compareBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center">
+                <span id="btnText">Load & Start</span>
+                <svg id="loadingSpinner" class="hidden animate-spin ml-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            </button>
+            
+            <button id="downloadBtn" class="hidden bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform transform hover:scale-105 flex items-center justify-center">
+                <span>Download Result</span>
+                <svg class="ml-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            </button>
+        </div>
+        
+        <p id="statusMsg" class="text-center text-slate-600 font-medium mb-4 hidden"></p>
+        <p id="errorMsg" class="text-center text-red-500 mt-3 text-sm hidden"></p>
+
+        <!-- Results Section -->
+        <div id="resultsSection" class="hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                <!-- Left Panel -->
+                <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col h-[75vh]">
+                    <div class="bg-slate-800 text-white px-4 py-3 flex justify-between items-center">
+                        <h3 class="font-semibold" id="leftHeader">PDF 1 Pages</h3>
+                    </div>
+                    <div id="leftPanel" class="p-6 overflow-y-auto scrollable-pane flex-grow bg-slate-100 flex flex-col items-center"></div>
+                </div>
+
+                <!-- Right Panel -->
+                <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col h-[75vh]">
+                    <div class="bg-slate-800 text-white px-4 py-3 flex justify-between items-center">
+                        <h3 class="font-semibold" id="rightHeader">PDF 2 Pages</h3>
+                    </div>
+                    <div id="rightPanel" class="p-6 overflow-y-auto scrollable-pane flex-grow bg-slate-100 flex flex-col items-center"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comparison Modal -->
+        <div id="diffModal" class="fixed inset-0 bg-black/80 z-[100] hidden flex flex-col items-center justify-center p-4">
+            <div class="bg-white rounded-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden">
+                <div class="p-4 border-b flex justify-between items-center">
+                    <h3 class="text-lg font-bold">Manual Comparison Result</h3>
+                    <div class="flex gap-2">
+                        <button id="modalDownload" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold">Download Page</button>
+                        <button id="closeModal" class="bg-slate-200 text-slate-800 px-4 py-2 rounded-lg text-sm font-bold">Close</button>
+                    </div>
+                </div>
+                <div id="modalContent" class="flex-grow overflow-auto bg-slate-200 p-8 flex flex-col items-center"></div>
+            </div>
+        </div>
+
+        <!-- Message Box Modal -->
+        <div id="msgModal" class="fixed inset-0 bg-black/50 z-[200] hidden flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full text-center">
+                <h4 class="font-bold text-lg mb-2" id="msgTitle">Notice</h4>
+                <p class="text-slate-600 mb-6" id="msgBody"></p>
+                <button id="closeMsg" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold">OK</button>
+            </div>
+        </div>
+
+        <!-- How to Use Section -->
+        <section class="mt-16 bg-white rounded-2xl p-8 border border-slate-200 shadow-sm">
+            <h2 class="text-2xl font-bold mb-6 text-slate-900 border-b pb-4">How to Use This Tool</h2>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div>
+                    <h3 class="font-bold text-blue-600 mb-2">1. Upload PDFs</h3>
+                    <p class="text-sm text-slate-600">Select files or <strong>drag and drop</strong> them into the zones. Processed locally for privacy.</p>
+                </div>
+                <div>
+                    <h3 class="font-bold text-blue-600 mb-2">2. Toggle Mode</h3>
+                    <p class="text-sm text-slate-600">Switch between <strong>Auto</strong> (1-to-1) and <strong>Manual</strong> (cross-page).</p>
+                </div>
+                <div>
+                    <h3 class="font-bold text-blue-600 mb-2">3. Manual Jump</h3>
+                    <p class="text-sm text-slate-600">In Manual mode, type page numbers to skip scrolling and compare instantly.</p>
+                </div>
+                <div>
+                    <h3 class="font-bold text-blue-600 mb-2">4. High Clarity</h3>
+                    <p class="text-sm text-slate-600">Changes appear in <strong>RED</strong>. Download individual pages or full results.</p>
+                </div>
+            </div>
+        </section>
+
+        <footer class="mt-12 text-center text-slate-400 text-sm pb-8">
+            <p>Developed by <span class="font-bold text-slate-600">VK Basson</span> • Open Source GitHub Project</p>
+        </footer>
+
+    </main>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+        const file1Input = document.getElementById('pdf1');
+        const file2Input = document.getElementById('pdf2');
+        const pdf1Status = document.getElementById('pdf1-status');
+        const pdf2Status = document.getElementById('pdf2-status');
+        const dropZone1 = document.getElementById('drop-zone-1');
+        const dropZone2 = document.getElementById('drop-zone-2');
+
+        const compareBtn = document.getElementById('compareBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const statusMsg = document.getElementById('statusMsg');
+        const modeToggle = document.getElementById('pageToPageToggle');
+        const leftPanel = document.getElementById('leftPanel');
+        const rightPanel = document.getElementById('rightPanel');
+        const diffModal = document.getElementById('diffModal');
+        const modalContent = document.getElementById('modalContent');
+        const quickJumpArea = document.getElementById('quickJumpArea');
+        const jumpP1 = document.getElementById('jumpP1');
+        const jumpP2 = document.getElementById('jumpP2');
+        const jumpCompareBtn = document.getElementById('jumpCompareBtn');
+
+        const msgModal = document.getElementById('msgModal');
+        const msgTitle = document.getElementById('msgTitle');
+        const msgBody = document.getElementById('msgBody');
+        const closeMsg = document.getElementById('closeMsg');
+        
+        let pdf1Doc = null, pdf2Doc = null;
+        let diffCanvases = [];
+        let leftSelected = null, rightSelected = null;
+
+        const RENDER_SCALE = 2.5; 
+
+        // Message Box
+        function showMessage(title, body) {
+            msgTitle.innerText = title;
+            msgBody.innerText = body;
+            msgModal.classList.remove('hidden');
+        }
+        closeMsg.onclick = () => msgModal.classList.add('hidden');
+
+        // Drag and Drop Logic
+        [
+            { zone: dropZone1, input: file1Input, status: pdf1Status },
+            { zone: dropZone2, input: file2Input, status: pdf2Status }
+        ].forEach(item => {
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                item.zone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }, false);
+            });
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                item.zone.addEventListener(eventName, () => {
+                    item.zone.classList.add('drag-over');
+                }, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                item.zone.addEventListener(eventName, () => {
+                    item.zone.classList.remove('drag-over');
+                }, false);
+            });
+
+            item.zone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files && files[0] && files[0].type === 'application/pdf') {
+                    item.input.files = files;
+                    item.status.innerText = `Selected: ${files[0].name}`;
+                    item.status.classList.remove('text-slate-400');
+                    item.status.classList.add('text-blue-600');
+                } else {
+                    showMessage("Invalid File", "Please drop a valid PDF file.");
+                }
+            }, false);
+
+            item.input.addEventListener('change', () => {
+                if (item.input.files && item.input.files[0]) {
+                    item.status.innerText = `Selected: ${item.input.files[0].name}`;
+                    item.status.classList.remove('text-slate-400');
+                    item.status.classList.add('text-blue-600');
+                }
+            });
+        });
+
+        modeToggle.addEventListener('change', () => {
+            const isAuto = modeToggle.checked;
+            document.getElementById('modeLabel').innerText = isAuto ? "Page-to-Page Comparison" : "Manual Page Selection";
+            document.getElementById('manualInstruction').classList.toggle('hidden', isAuto);
+            quickJumpArea.classList.toggle('hidden', isAuto);
+            
+            if (pdf1Doc && pdf2Doc) startProcessing();
+        });
+
+        async function renderPage(pdfDoc, pageNum) {
+            if (!pdfDoc || !pageNum) return null;
+            const page = await pdfDoc.getPage(pageNum);
+            const viewport = page.getViewport({ scale: RENDER_SCALE });
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d', { alpha: false });
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+            return { canvas, ctx };
+        }
+
+        function createDiff(render1, render2) {
+            const w = Math.max(render1 ? render1.canvas.width : 0, render2 ? render2.canvas.width : 0);
+            const h = Math.max(render1 ? render1.canvas.height : 0, render2 ? render2.canvas.height : 0);
+
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+
+            const d1 = render1 ? render1.ctx.getImageData(0, 0, render1.canvas.width, render1.canvas.height).data : null;
+            const d2 = render2 ? render2.ctx.getImageData(0, 0, render2.canvas.width, render2.canvas.height).data : null;
+            const out = ctx.createImageData(w, h);
+            const o = out.data;
+
+            const w1 = render1 ? render1.canvas.width : 0;
+            const w2 = render2 ? render2.canvas.width : 0;
+
+            for (let i = 0; i < o.length; i += 4) {
+                const pixelIdx = i / 4;
+                const x = pixelIdx % w;
+                const y = Math.floor(pixelIdx / w);
+
+                let r1 = 255, g1 = 255, b1 = 255;
+                if (d1 && x < w1 && y < render1.canvas.height) {
+                    const idx = (y * w1 + x) * 4;
+                    r1 = d1[idx]; g1 = d1[idx+1]; b1 = d1[idx+2];
+                }
+
+                let r2 = 255, g2 = 255, b2 = 255;
+                if (d2 && x < w2 && y < render2.canvas.height) {
+                    const idx = (y * w2 + x) * 4;
+                    r2 = d2[idx]; g2 = d2[idx+1]; b2 = d2[idx+2];
+                }
+
+                const diff = Math.abs(r1-r2) + Math.abs(g1-g2) + Math.abs(b1-b2);
+                if (diff > 30) {
+                    o[i] = 255; o[i+1] = 0; o[i+2] = 0; o[i+3] = 255;
+                } else {
+                    o[i] = r2; o[i+1] = g2; o[i+2] = b2; o[i+3] = 255;
+                }
+            }
+            ctx.putImageData(out, 0, 0);
+            return canvas;
+        }
+
+        async function startProcessing() {
+            if (!pdf1Doc || !pdfDocIsLoaded(pdf1Doc) || !pdfDocIsLoaded(pdf2Doc)) return;
+
+            leftPanel.innerHTML = ''; rightPanel.innerHTML = '';
+            diffCanvases = [];
+            statusMsg.classList.remove('hidden');
+            const isAuto = modeToggle.checked;
+
+            if (isAuto) {
+                const max = Math.max(pdf1Doc.numPages, pdf2Doc.numPages);
+                document.getElementById('rightHeader').innerText = "Compared Results (Page-to-Page)";
+                
+                for(let i=1; i<=max; i++) {
+                    statusMsg.innerText = `Processing ${i}/${max}...`;
+                    const r1 = await renderPage(pdf1Doc, i <= pdf1Doc.numPages ? i : null).catch(() => null);
+                    const r2 = await renderPage(pdf2Doc, i <= pdf2Doc.numPages ? i : null).catch(() => null);
+                    
+                    if (r1) {
+                        const w1 = document.createElement('div'); w1.className = 'pdf-canvas-wrapper';
+                        w1.innerHTML = `<div class="page-label">P${i}</div>`; w1.appendChild(r1.canvas);
+                        leftPanel.appendChild(w1);
+                    }
+
+                    const diff = createDiff(r1, r2);
+                    diffCanvases.push(diff);
+                    const w2 = document.createElement('div'); w2.className = 'pdf-canvas-wrapper';
+                    w2.innerHTML = `<div class="page-label">Result P${i}</div>`; w2.appendChild(diff);
+                    rightPanel.appendChild(w2);
+                }
+                downloadBtn.classList.remove('hidden');
+            } else {
+                document.getElementById('rightHeader').innerText = "PDF 2 Pages (Select to Compare)";
+                downloadBtn.classList.add('hidden');
+                
+                for(let i=1; i<=pdf1Doc.numPages; i++) {
+                    const r = await renderPage(pdf1Doc, i);
+                    const w = document.createElement('div'); w.className = 'pdf-canvas-wrapper cursor-pointer hover:shadow-xl';
+                    w.innerHTML = `<div class="page-label">P${i}</div>`; w.appendChild(r.canvas);
+                    w.onclick = () => selectPage(w, i, 'left');
+                    leftPanel.appendChild(w);
+                }
+                for(let i=1; i<=pdf2Doc.numPages; i++) {
+                    const r = await renderPage(pdf2Doc, i);
+                    const w = document.createElement('div'); w.className = 'pdf-canvas-wrapper cursor-pointer hover:shadow-xl';
+                    w.innerHTML = `<div class="page-label">P${i}</div>`; w.appendChild(r.canvas);
+                    w.onclick = () => selectPage(w, i, 'right');
+                    rightPanel.appendChild(w);
+                }
+            }
+            statusMsg.innerText = "Ready!";
+        }
+
+        function pdfDocIsLoaded(doc) { return !!doc; }
+
+        function selectPage(el, num, side) {
+            if (side === 'left') {
+                if(leftSelected) leftSelected.el.classList.remove('selected');
+                leftSelected = { el, num };
+            } else {
+                if(rightSelected) rightSelected.el.classList.remove('selected');
+                rightSelected = { el, num };
+            }
+            el.classList.add('selected');
+
+            if (leftSelected && rightSelected) {
+                runManualCompare(leftSelected.num, rightSelected.num);
+            }
+        }
+
+        jumpCompareBtn.onclick = () => {
+            if (!pdf1Doc || !pdf2Doc) {
+                showMessage("Files Missing", "Please upload and load both PDFs before comparing pages.");
+                return;
+            }
+
+            const p1 = parseInt(jumpP1.value);
+            const p2 = parseInt(jumpP2.value);
+            
+            if (isNaN(p1) || isNaN(p2)) {
+                showMessage("Invalid Input", "Please enter valid page numbers.");
+                return;
+            }
+
+            if (p1 > pdf1Doc.numPages || p2 > pdf2Doc.numPages || p1 < 1 || p2 < 1) {
+                showMessage("Page Out of Range", `Original PDF has ${pdf1Doc.numPages} pages. Compared PDF has ${pdf2Doc.numPages} pages.`);
+                return;
+            }
+            
+            runManualCompare(p1, p2);
+        };
+
+        async function runManualCompare(n1, n2) {
+            statusMsg.innerText = "Comparing selection...";
+            statusMsg.classList.remove('hidden');
+            const r1 = await renderPage(pdf1Doc, n1);
+            const r2 = await renderPage(pdf2Doc, n2);
+            const diff = createDiff(r1, r2);
+            
+            modalContent.innerHTML = '';
+            modalContent.appendChild(diff);
+            diffModal.classList.remove('hidden');
+            statusMsg.innerText = "Comparison ready!";
+
+            document.getElementById('modalDownload').onclick = () => {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF(diff.width > diff.height ? 'l' : 'p', 'px', [diff.width, diff.height]);
+                doc.addImage(diff.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, diff.width, diff.height);
+                doc.save(`Compare_Original_P${n1}_vs_Compared_P${n2}.pdf`);
+            };
+        }
+
+        compareBtn.onclick = async () => {
+            if(!file1Input.files[0] || !file2Input.files[0]) {
+                showMessage("Missing Files", "Select both PDFs before starting.");
+                return;
+            }
+
+            compareBtn.disabled = true;
+            document.getElementById('loadingSpinner').classList.remove('hidden');
+            
+            try {
+                const [b1, b2] = await Promise.all([
+                    file1Input.files[0].arrayBuffer(), 
+                    file2Input.files[0].arrayBuffer()
+                ]);
+                pdf1Doc = await pdfjsLib.getDocument({data: b1}).promise;
+                pdf2Doc = await pdfjsLib.getDocument({data: b2}).promise;
+                
+                document.getElementById('resultsSection').classList.remove('hidden');
+                await startProcessing();
+            } catch(e) { 
+                console.error(e);
+                showMessage("Error", "Failed to load PDF documents. They might be corrupted or protected.");
+            }
+            
+            compareBtn.disabled = false;
+            document.getElementById('loadingSpinner').classList.add('hidden');
+        };
+
+        downloadBtn.onclick = () => {
+            if (!diffCanvases.length) return;
+            const { jsPDF } = window.jspdf;
+            const first = diffCanvases[0];
+            const doc = new jsPDF(first.width > first.height ? 'l' : 'p', 'px', [first.width, first.height]);
+            
+            diffCanvases.forEach((canvas, i) => {
+                if(i > 0) doc.addPage([canvas.width, canvas.height], canvas.width > canvas.height ? 'l' : 'p');
+                doc.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, canvas.width, canvas.height);
+            });
+            doc.save('Full_Comparison_Result.pdf');
+        };
+
+        document.getElementById('closeModal').onclick = () => diffModal.classList.add('hidden');
+    </script>
+</body>
+</html>
