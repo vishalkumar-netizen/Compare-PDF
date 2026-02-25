@@ -60,17 +60,6 @@
             border-bottom-right-radius: 8px;
             pointer-events: none;
         }
-
-        /* Drag and Drop Styling */
-        .drop-zone {
-            transition: all 0.3s ease;
-            border: 2px dashed #e2e8f0;
-        }
-        .drop-zone.drag-over {
-            border-color: #3b82f6;
-            background-color: #eff6ff;
-            transform: translateY(-2px);
-        }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-800 flex flex-col">
@@ -93,23 +82,39 @@
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
         
-        <!-- Upload Section -->
+        <!-- Drag & Drop Upload Section -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <!-- PDF 1 Upload -->
-            <div id="drop-zone-1" class="drop-zone bg-white p-6 rounded-xl shadow-sm">
-                <h2 class="text-lg font-semibold mb-2 text-slate-700">1. Original PDF</h2>
-                <p class="text-xs text-slate-500 mb-4">Click to browse or drag and drop file here</p>
-                <input id="pdf1" type="file" accept="application/pdf" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-                <p id="pdf1-status" class="mt-2 text-xs text-slate-400 font-medium">Ready for upload</p>
+            
+            <!-- Dropzone 1 -->
+            <div id="dropzone1" class="relative bg-white p-6 rounded-xl shadow-sm border-2 border-dashed border-slate-300 transition-colors duration-200 hover:border-blue-500 hover:bg-blue-50 flex flex-col h-full overflow-hidden group">
+                <h2 class="text-lg font-semibold mb-2 text-slate-700 pointer-events-none">1. Original PDF</h2>
+                <div class="flex-grow flex flex-col items-center justify-center py-6 pointer-events-none">
+                    <svg class="w-12 h-12 text-slate-300 mb-3 transition-colors duration-200 dropzone-icon group-hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                    <p class="text-sm text-slate-600 font-medium mb-1">Drag & drop your PDF here</p>
+                    <p class="text-xs text-slate-400">or click to browse</p>
+                </div>
+                <div class="text-center mt-2 pointer-events-none h-6 flex justify-center">
+                     <p id="pdf1-status" class="text-xs font-bold text-blue-700 truncate hidden px-4 py-1.5 bg-blue-100 rounded-full shadow-sm max-w-full"></p>
+                </div>
+                <!-- Invisible file input overlaid on the dropzone -->
+                <input id="pdf1" type="file" accept="application/pdf" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" title="" />
             </div>
 
-            <!-- PDF 2 Upload -->
-            <div id="drop-zone-2" class="drop-zone bg-white p-6 rounded-xl shadow-sm">
-                <h2 class="text-lg font-semibold mb-2 text-slate-700">2. PDF to be compared</h2>
-                <p class="text-xs text-slate-500 mb-4">Click to browse or drag and drop file here</p>
-                <input id="pdf2" type="file" accept="application/pdf" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-                <p id="pdf2-status" class="mt-2 text-xs text-slate-400 font-medium">Ready for upload</p>
+            <!-- Dropzone 2 -->
+            <div id="dropzone2" class="relative bg-white p-6 rounded-xl shadow-sm border-2 border-dashed border-slate-300 transition-colors duration-200 hover:border-blue-500 hover:bg-blue-50 flex flex-col h-full overflow-hidden group">
+                <h2 class="text-lg font-semibold mb-2 text-slate-700 pointer-events-none">2. PDF to be compared</h2>
+                <div class="flex-grow flex flex-col items-center justify-center py-6 pointer-events-none">
+                    <svg class="w-12 h-12 text-slate-300 mb-3 transition-colors duration-200 dropzone-icon group-hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                    <p class="text-sm text-slate-600 font-medium mb-1">Drag & drop your PDF here</p>
+                    <p class="text-xs text-slate-400">or click to browse</p>
+                </div>
+                <div class="text-center mt-2 pointer-events-none h-6 flex justify-center">
+                     <p id="pdf2-status" class="text-xs font-bold text-blue-700 truncate hidden px-4 py-1.5 bg-blue-100 rounded-full shadow-sm max-w-full"></p>
+                </div>
+                <!-- Invisible file input overlaid on the dropzone -->
+                <input id="pdf2" type="file" accept="application/pdf" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" title="" />
             </div>
+
         </div>
 
         <!-- Options Section -->
@@ -180,7 +185,7 @@
             </div>
         </div>
 
-        <!-- Comparison Modal -->
+        <!-- Comparison Modal / Overlay for Manual Comparison -->
         <div id="diffModal" class="fixed inset-0 bg-black/80 z-[100] hidden flex flex-col items-center justify-center p-4">
             <div class="bg-white rounded-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden">
                 <div class="p-4 border-b flex justify-between items-center">
@@ -190,11 +195,13 @@
                         <button id="closeModal" class="bg-slate-200 text-slate-800 px-4 py-2 rounded-lg text-sm font-bold">Close</button>
                     </div>
                 </div>
-                <div id="modalContent" class="flex-grow overflow-auto bg-slate-200 p-8 flex flex-col items-center"></div>
+                <div id="modalContent" class="flex-grow overflow-auto bg-slate-200 p-8 flex flex-col items-center">
+                    <!-- Resulting diff canvas here -->
+                </div>
             </div>
         </div>
 
-        <!-- Message Box Modal -->
+        <!-- Message Box Modal (Instead of Alert) -->
         <div id="msgModal" class="fixed inset-0 bg-black/50 z-[200] hidden flex items-center justify-center p-4">
             <div class="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full text-center">
                 <h4 class="font-bold text-lg mb-2" id="msgTitle">Notice</h4>
@@ -209,7 +216,7 @@
             <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
                 <div>
                     <h3 class="font-bold text-blue-600 mb-2">1. Upload PDFs</h3>
-                    <p class="text-sm text-slate-600">Select files or <strong>drag and drop</strong> them into the zones. Processed locally for privacy.</p>
+                    <p class="text-sm text-slate-600">Drag & Drop or click to upload your original PDF and the compared version. No size limit; processed locally.</p>
                 </div>
                 <div>
                     <h3 class="font-bold text-blue-600 mb-2">2. Toggle Mode</h3>
@@ -217,7 +224,7 @@
                 </div>
                 <div>
                     <h3 class="font-bold text-blue-600 mb-2">3. Manual Jump</h3>
-                    <p class="text-sm text-slate-600">In Manual mode, type page numbers to skip scrolling and compare instantly.</p>
+                    <p class="text-sm text-slate-600">In Manual mode, type page numbers (e.g. 2 and 6) to skip scrolling and compare instantly.</p>
                 </div>
                 <div>
                     <h3 class="font-bold text-blue-600 mb-2">4. High Clarity</h3>
@@ -237,11 +244,6 @@
 
         const file1Input = document.getElementById('pdf1');
         const file2Input = document.getElementById('pdf2');
-        const pdf1Status = document.getElementById('pdf1-status');
-        const pdf2Status = document.getElementById('pdf2-status');
-        const dropZone1 = document.getElementById('drop-zone-1');
-        const dropZone2 = document.getElementById('drop-zone-2');
-
         const compareBtn = document.getElementById('compareBtn');
         const downloadBtn = document.getElementById('downloadBtn');
         const statusMsg = document.getElementById('statusMsg');
@@ -264,61 +266,67 @@
         let diffCanvases = [];
         let leftSelected = null, rightSelected = null;
 
+        // HIGH CLARITY SETTINGS
         const RENDER_SCALE = 2.5; 
 
-        // Message Box
+        // --- NEW DRAG AND DROP LOGIC ---
+        function setupDragAndDrop(dropzoneId, inputId, statusId) {
+            const dropzone = document.getElementById(dropzoneId);
+            const input = document.getElementById(inputId);
+            const status = document.getElementById(statusId);
+            const icon = dropzone.querySelector('.dropzone-icon');
+
+            const highlight = () => {
+                dropzone.classList.add('border-blue-500', 'bg-blue-50');
+                dropzone.classList.remove('border-slate-300');
+                icon.classList.add('text-blue-500');
+                icon.classList.remove('text-slate-300');
+            };
+
+            const unhighlight = () => {
+                dropzone.classList.remove('border-blue-500', 'bg-blue-50');
+                dropzone.classList.add('border-slate-300');
+                icon.classList.remove('text-blue-500');
+                icon.classList.add('text-slate-300');
+            };
+
+            // Events for dragging over the invisible input covering the dropzone
+            input.addEventListener('dragenter', highlight);
+            input.addEventListener('dragover', highlight);
+            input.addEventListener('dragleave', unhighlight);
+            input.addEventListener('drop', unhighlight);
+
+            // Triggered when file is dropped or selected manually
+            input.addEventListener('change', () => {
+                if (input.files && input.files.length > 0) {
+                    const file = input.files[0];
+                    if (file.type !== 'application/pdf') {
+                        showMessage("Invalid File", "Please upload a valid PDF file.");
+                        input.value = ""; // Clear invalid file
+                        status.classList.add('hidden');
+                        return;
+                    }
+                    status.innerHTML = `Selected: ${file.name}`;
+                    status.classList.remove('hidden');
+                } else {
+                    status.classList.add('hidden');
+                }
+            });
+        }
+
+        // Initialize drag and drop for both fields
+        setupDragAndDrop('dropzone1', 'pdf1', 'pdf1-status');
+        setupDragAndDrop('dropzone2', 'pdf2', 'pdf2-status');
+        // --- END DRAG AND DROP LOGIC ---
+
+
         function showMessage(title, body) {
             msgTitle.innerText = title;
             msgBody.innerText = body;
             msgModal.classList.remove('hidden');
         }
+
         closeMsg.onclick = () => msgModal.classList.add('hidden');
-
-        // Drag and Drop Logic
-        [
-            { zone: dropZone1, input: file1Input, status: pdf1Status },
-            { zone: dropZone2, input: file2Input, status: pdf2Status }
-        ].forEach(item => {
-            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-                item.zone.addEventListener(eventName, (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                }, false);
-            });
-
-            ['dragenter', 'dragover'].forEach(eventName => {
-                item.zone.addEventListener(eventName, () => {
-                    item.zone.classList.add('drag-over');
-                }, false);
-            });
-
-            ['dragleave', 'drop'].forEach(eventName => {
-                item.zone.addEventListener(eventName, () => {
-                    item.zone.classList.remove('drag-over');
-                }, false);
-            });
-
-            item.zone.addEventListener('drop', (e) => {
-                const dt = e.dataTransfer;
-                const files = dt.files;
-                if (files && files[0] && files[0].type === 'application/pdf') {
-                    item.input.files = files;
-                    item.status.innerText = `Selected: ${files[0].name}`;
-                    item.status.classList.remove('text-slate-400');
-                    item.status.classList.add('text-blue-600');
-                } else {
-                    showMessage("Invalid File", "Please drop a valid PDF file.");
-                }
-            }, false);
-
-            item.input.addEventListener('change', () => {
-                if (item.input.files && item.input.files[0]) {
-                    item.status.innerText = `Selected: ${item.input.files[0].name}`;
-                    item.status.classList.remove('text-slate-400');
-                    item.status.classList.add('text-blue-600');
-                }
-            });
-        });
 
         modeToggle.addEventListener('change', () => {
             const isAuto = modeToggle.checked;
@@ -391,7 +399,7 @@
         }
 
         async function startProcessing() {
-            if (!pdf1Doc || !pdfDocIsLoaded(pdf1Doc) || !pdfDocIsLoaded(pdf2Doc)) return;
+            if (!pdf1Doc || !pdf2Doc) return;
 
             leftPanel.innerHTML = ''; rightPanel.innerHTML = '';
             diffCanvases = [];
@@ -441,8 +449,6 @@
             }
             statusMsg.innerText = "Ready!";
         }
-
-        function pdfDocIsLoaded(doc) { return !!doc; }
 
         function selectPage(el, num, side) {
             if (side === 'left') {
